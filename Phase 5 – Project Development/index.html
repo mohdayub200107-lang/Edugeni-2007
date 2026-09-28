@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduGenie – Google Gemini Powered Learning Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="page">
+    <header class="hero">
+        <h1>Welcome to EduGenie 🧠✨</h1>
+        <p>Your personal AI tutor for learning support</p>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>Ask EduGenie a Question</h2>
+            <div class="row">
+                <input id="qaInput" type="text" placeholder="Why is the sky blue?">
+                <button onclick="runTask('qa', 'qaInput', 'qaResult')">Get Answer</button>
+            </div>
+            <div id="qaResult" class="result"></div>
+        </section>
+
+        <section class="card">
+            <h2>Need an Explanation?</h2>
+            <div class="row">
+                <input id="explainInput" type="text" placeholder="Photosynthesis">
+                <button onclick="runTask('explain', 'explainInput', 'explainResult')">Explain</button>
+            </div>
+            <div id="explainResult" class="result"></div>
+        </section>
+
+        <section class="card">
+            <h2>Summarize a Paragraph</h2>
+            <textarea id="summaryInput" placeholder="Paste a long educational paragraph to summarize"></textarea>
+            <button onclick="runTask('summary', 'summaryInput', 'summaryResult')">Summarize</button>
+            <div id="summaryResult" class="result"></div>
+        </section>
+
+        <section class="card">
+            <h2>Generate a Quiz</h2>
+            <div class="row">
+                <input id="quizInput" type="text" placeholder="Pythagoras theorem">
+                <button onclick="runTask('quiz', 'quizInput', 'quizResult')">Generate Quiz</button>
+            </div>
+            <div id="quizResult" class="result"></div>
+        </section>
+
+        <section class="card">
+            <h2>Get Learning Recommendations</h2>
+            <div class="row">
+                <input id="recommendInput" type="text" placeholder="SQL">
+                <button onclick="runTask('recommend', 'recommendInput', 'recommendResult')">
+                    Get Recommendations
+                </button>
+            </div>
+            <div id="recommendResult" class="result"></div>
+        </section>
+    </main>
+
+    <footer>
+        EduGenie • FastAPI + Google Gemini • Educational AI Assistant
+    </footer>
+</div>
+
+<script>
+async function runTask(task, inputId, resultId) {
+    const input = document.getElementById(inputId);
+    const result = document.getElementById(resultId);
+    const text = input.value.trim();
+
+    if (!text) {
+        result.innerHTML = "<p class='error'>Please enter some input.</p>";
+        return;
+    }
+
+    result.innerHTML = "<p>⏳ EduGenie is thinking...</p>";
+
+    try {
+        const response = await fetch("/action", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({task, text})
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            result.innerHTML = `<p class="error">${escapeHtml(data.error || "Something went wrong.")}</p>`;
+            return;
+        }
+
+        if (data.type === "quiz" && Array.isArray(data.result)) {
+            renderQuiz(result, data.result);
+        } else {
+            result.innerHTML = `<h3>Result</h3><div class="answer">${escapeHtml(String(data.result || ""))}</div>`;
+        }
+    } catch (error) {
+        result.innerHTML = `<p class="error">Could not connect to the EduGenie backend.</p>`;
+    }
+}
+
+function renderQuiz(container, quiz) {
+    if (!quiz.length) {
+        container.innerHTML = "<p>No quiz could be generated.</p>";
+        return;
+    }
+
+    container.innerHTML = quiz.map((item, index) => {
+        const options = (item.options || []).map((option, optionIndex) => `
+            <label class="option">
+                <input type="radio" name="q${index}" value="${escapeAttr(option)}">
+                ${escapeHtml(option)}
+            </label>
+        `).join("");
+
+        return `
+            <div class="quiz-question">
+                <strong>Q${index + 1}. ${escapeHtml(item.question || "")}</strong>
+                ${options}
+                <button class="small-btn" onclick='checkAnswer(${index}, ${JSON.stringify(item.answer || "")})'>
+                    Check Answer
+                </button>
+                <div id="check${index}" class="check"></div>
+            </div>
+        `;
+    }).join("");
+}
+
+function checkAnswer(index, correct) {
+    const selected = document.querySelector(`input[name="q${index}"]:checked`);
+    const box = document.getElementById(`check${index}`);
+
+    if (!selected) {
+        box.innerHTML = "<span class='wrong'>Please select an option.</span>";
+    } else if (selected.value === correct) {
+        box.innerHTML = "<span class='correct'>✓ Correct</span>";
+    } else {
+        box.innerHTML = `<span class='wrong'>✗ Incorrect. Correct answer: ${escapeHtml(correct)}</span>`;
+    }
+}
+
+function escapeHtml(value) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+    return escapeHtml(value);
+}
+</script>
+</body>
+</html>
